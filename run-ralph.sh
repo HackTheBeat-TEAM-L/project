@@ -5,7 +5,7 @@
 
 MAX=30
 COUNT=0
-MODEL="gemini-3.6-flash" # 확정된 런타임 모델 슬러그 (필요 시 수정)
+MODEL="gemini-3.5-flash" # 확정된 런타임 모델 슬러그 (필요 시 수정)
 
 echo "Starting Ralph Loop with MAX=$MAX iterations."
 echo "Model: $MODEL"
@@ -26,7 +26,7 @@ while [ $COUNT -lt $MAX ]; do
   echo "======================================"
 
   # agy를 비대화형으로 프레시 컨텍스트에서 실행
-  agy --print "$(cat .agent/PROMPT.md)" --model "$MODEL"
+  agy --print "$(cat .agent/PROMPT.md)" --model "$MODEL" --effort low
   
   EXIT_CODE=$?
   
