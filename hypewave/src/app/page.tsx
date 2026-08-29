@@ -104,11 +104,12 @@ export default function Page() {
   const injectHype = useCallback(() => {
     const c = controllerRef.current;
     if (!c) return;
-    let n = 0;
-    const id = setInterval(() => {
-      c.onSample(70 + Math.random() * 3);
-      if (++n >= 4) clearInterval(id);
-    }, 40);
+    // Self-contained: seed a baseline, then a spike. Independent of the ambient
+    // timer (browsers throttle setInterval in background tabs). Explicit, spaced
+    // timestamps guarantee the 10s window has a baseline before the spike.
+    const base = Date.now();
+    const seq = [50, 50, 50, 50, 50, 50, 70, 71, 70, 72, 71];
+    seq.forEach((db, i) => c.onSample(db, base + i * 120));
   }, []);
 
   return (
