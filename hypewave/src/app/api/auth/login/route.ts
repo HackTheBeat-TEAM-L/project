@@ -10,7 +10,6 @@ export async function GET() {
   try {
     const state = randomBytes(16).toString("hex");
     const res = NextResponse.redirect(buildAuthorizeUrl(state));
-    console.error("[HW login] issued state=", state);
     res.cookies.set(COOKIE.state, state, {
       httpOnly: true,
       sameSite: "lax",
