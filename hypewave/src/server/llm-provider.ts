@@ -3,8 +3,8 @@ import { getEnv } from "./env";
 import type { SongSuggestion } from "@/lib/types";
 
 // gemini-2.5-flash is blocked for new API keys -> must use gemini-3.6-flash (verified working).
-const GEMINI_MODEL = "gemini-3.6-flash";
-const GROQ_MODEL = "openai/gpt-oss-20b";
+const GEMINI_MODEL = process.env.LLM_MODEL?.trim() || "gemini-3.6-flash";
+const GROQ_MODEL = process.env.LLM_MODEL?.trim() || "openai/gpt-oss-20b";
 
 const SuggestionsSchema = z.array(
   z.object({ title: z.string().min(1), artist: z.string().min(1) })
