@@ -199,3 +199,5 @@ body {
 .source-switch button { font: inherit; font-size: 0.82rem; font-weight: 600; color: var(--text-dim); background: transparent; border: 0; cursor: pointer; padding: 0.45rem 0.95rem; border-radius: 999px; transition: color var(--dur), background var(--dur); }
 .source-switch button.is-on { color: var(--bg); background: var(--cyan); }
 .dash__mic-live { color: var(--magenta); font-weight: 700; font-size: 0.9rem; display: inline-flex; align-items: center; margin-right: auto; }
+
+.db-meter__foot .is-warmup { color: var(--cyan); }

@@ -35,6 +35,7 @@ export interface AutoDjSnapshot {
   currentDb: number | null;
   baseline: number | null;
   inCooldown: boolean;
+  warmedUp: boolean;
   hype: boolean;
   currentTrack: TrackRef | null;
   nextTrack: TrackRef | null;
@@ -68,6 +69,7 @@ export class AutoDjController {
       currentDb: null,
       baseline: null,
       inCooldown: false,
+      warmedUp: false,
       hype: false,
       currentTrack: null,
       nextTrack: null,
@@ -129,7 +131,7 @@ export class AutoDjController {
     }
     const res = pushSample(this.trigger, { t: t ?? this.now(), db }, this.cfg);
     this.trigger = res.state;
-    this.set({ currentDb: db, baseline: res.baseline, inCooldown: res.inCooldown });
+    this.set({ currentDb: db, baseline: res.baseline, inCooldown: res.inCooldown, warmedUp: res.warmedUp });
     if (res.triggered) {
       this.log("trigger", `HYPE! ${db.toFixed(1)}dB (기준선 ${res.baseline?.toFixed(1)}dB 대비)`);
       this.set({ hype: true });

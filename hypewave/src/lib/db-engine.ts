@@ -2,7 +2,8 @@ import type { HypeConfig } from "./config";
 
 // Pure, deterministic decibel trigger engine.
 // Baseline = rolling average of samples in the *previous* window (excludes current).
-// Trigger when current dB exceeds baseline by >= spikeThresholdDb AND not in cooldown.
+// A trigger requires: warm-up elapsed, a >= spikeThresholdDb rise over baseline,
+// and no active cooldown.
 export interface DbSample {
   t: number; // epoch ms
   db: number;
@@ -11,6 +12,7 @@ export interface DbSample {
 export interface TriggerState {
   samples: DbSample[];
   lastTriggerAt: number | null;
+  firstSampleAt: number | null;
 }
 
 export interface DbEngineResult {
@@ -18,10 +20,11 @@ export interface DbEngineResult {
   baseline: number | null;
   triggered: boolean;
   inCooldown: boolean;
+  warmedUp: boolean;
 }
 
 export function createTriggerState(): TriggerState {
-  return { samples: [], lastTriggerAt: null };
+  return { samples: [], lastTriggerAt: null, firstSampleAt: null };
 }
 
 export function rollingAverage(samples: DbSample[]): number | null {
@@ -41,18 +44,24 @@ export function pushSample(
   const windowSamples = prev.samples.filter((s) => s.t >= cutoff && s.t < sample.t);
   const baseline = rollingAverage(windowSamples);
 
+  // warm-up: ignore triggers until enough baseline history has accumulated,
+  // so the very first seconds of a set can't false-fire on an unstable average.
+  const firstSampleAt = prev.firstSampleAt ?? sample.t;
+  const warmedUp = sample.t - firstSampleAt >= config.warmupSec * 1000;
+
   const cooldownMs = config.cooldownSec * 1000;
   const inCooldown =
     prev.lastTriggerAt !== null && sample.t - prev.lastTriggerAt < cooldownMs;
 
   const spike =
     baseline !== null && sample.db - baseline >= config.spikeThresholdDb;
-  const triggered = spike && !inCooldown;
+  const triggered = spike && !inCooldown && warmedUp;
 
   const nextState: TriggerState = {
     samples: [...windowSamples, sample],
     lastTriggerAt: triggered ? sample.t : prev.lastTriggerAt,
+    firstSampleAt,
   };
 
-  return { state: nextState, baseline, triggered, inCooldown };
+  return { state: nextState, baseline, triggered, inCooldown, warmedUp };
 }

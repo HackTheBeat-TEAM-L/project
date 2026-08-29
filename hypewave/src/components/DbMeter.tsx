@@ -5,15 +5,19 @@ interface Props {
   db: number | null;
   baseline: number | null;
   inCooldown: boolean;
+  warmedUp: boolean;
   config: HypeConfig;
 }
 
-export function DbMeter({ db, baseline, inCooldown, config }: Props) {
+export function DbMeter({ db, baseline, inCooldown, warmedUp, config }: Props) {
   const value = db ?? 0;
   const base = baseline ?? 0;
   const triggerLine = base + config.spikeThresholdDb;
   const pct = (n: number) => `${Math.max(0, Math.min(100, n))}%`;
-  const hot = baseline !== null && value >= triggerLine;
+  const hot = warmedUp && baseline !== null && value >= triggerLine;
+
+  const status = !warmedUp ? "워밍업" : inCooldown ? "쿨다운" : "대기";
+  const statusClass = !warmedUp ? "is-warmup" : inCooldown ? "is-cooldown" : "";
 
   return (
     <section className="db-meter" aria-label="실시간 데시벨 미터">
@@ -33,7 +37,7 @@ export function DbMeter({ db, baseline, inCooldown, config }: Props) {
       <footer className="db-meter__foot">
         <span>기준선 {baseline !== null ? base.toFixed(1) : "—"}</span>
         <span>트리거 +{config.spikeThresholdDb} → {baseline !== null ? triggerLine.toFixed(1) : "—"}</span>
-        <span className={inCooldown ? "is-cooldown" : ""}>{inCooldown ? "쿨다운" : "대기"}</span>
+        <span className={statusClass}>{status}</span>
       </footer>
     </section>
   );

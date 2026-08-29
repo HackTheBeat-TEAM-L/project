@@ -298,6 +298,7 @@ function Dashboard({
           db={snap.currentDb}
           baseline={snap.baseline}
           inCooldown={snap.inCooldown}
+          warmedUp={snap.warmedUp}
           config={DEFAULT_CONFIG}
         />
         <TrackCard label="지금 재생 중" track={snap.currentTrack} variant="now" />

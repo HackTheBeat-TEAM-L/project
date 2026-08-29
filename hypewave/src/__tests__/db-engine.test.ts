@@ -67,3 +67,25 @@ describe("db-engine", () => {
     expect(r.baseline).toBeNull();
   });
 });
+
+describe("db-engine warm-up", () => {
+  it("does not trigger before the warm-up window has elapsed", () => {
+    let state = createTriggerState();
+    for (let sec = 0; sec < 5; sec++) {
+      state = pushSample(state, { t: sec * 1000, db: 50 }, cfg).state;
+    }
+    const early = pushSample(state, { t: 5000, db: 75 }, cfg); // +25 but only 5s in
+    expect(early.warmedUp).toBe(false);
+    expect(early.triggered).toBe(false);
+  });
+
+  it("allows a trigger once the warm-up window has passed", () => {
+    let state = createTriggerState();
+    for (let sec = 0; sec < 10; sec++) {
+      state = pushSample(state, { t: sec * 1000, db: 50 }, cfg).state;
+    }
+    const r = pushSample(state, { t: 10_000, db: 62 }, cfg);
+    expect(r.warmedUp).toBe(true);
+    expect(r.triggered).toBe(true);
+  });
+});
