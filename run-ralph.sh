@@ -5,7 +5,7 @@
 
 MAX=30
 COUNT=0
-MODEL="gemini-3.5-flash" # 확정된 런타임 모델 슬러그 (필요 시 수정)
+MODEL="gemini-3.6-flash" # 확정된 런타임 모델 슬러그 (필요 시 수정)
 
 echo "Starting Ralph Loop with MAX=$MAX iterations."
 echo "Model: $MODEL"
