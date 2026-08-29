@@ -192,3 +192,10 @@ body {
   .hype-banner.is-active { animation-duration: 0.5s; }
   .btn, .db-meter__fill { transition: none; }
 }
+
+/* ---------- dB source switch + mic-live hint ---------- */
+.source-switch { display: inline-flex; align-items: center; gap: 0.4rem; background: var(--surface); border: 1px solid var(--surface-line); border-radius: 999px; padding: 4px 6px 4px 14px; backdrop-filter: blur(8px); }
+.source-switch__label { color: var(--text-dim); font-size: 0.7rem; letter-spacing: 0.14em; margin-right: 0.2rem; }
+.source-switch button { font: inherit; font-size: 0.82rem; font-weight: 600; color: var(--text-dim); background: transparent; border: 0; cursor: pointer; padding: 0.45rem 0.95rem; border-radius: 999px; transition: color var(--dur), background var(--dur); }
+.source-switch button.is-on { color: var(--bg); background: var(--cyan); }
+.dash__mic-live { color: var(--magenta); font-weight: 700; font-size: 0.9rem; display: inline-flex; align-items: center; margin-right: auto; }

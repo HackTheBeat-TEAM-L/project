@@ -10,8 +10,8 @@ import {
   markPlayed,
   type QueueState,
 } from "./queue";
-import { resolveNextTrack, type SearchFn } from "./fallback";
-import type { EventLogEntry, EventKind, SongSuggestion, TrackRef } from "./types";
+import { resolveNextTrack, type FallbackVia, type SearchFn } from "./fallback";
+import type { EventKind, EventLogEntry, SongSuggestion, TrackRef } from "./types";
 
 export interface AutoDjDeps {
   config?: HypeConfig;
@@ -42,6 +42,13 @@ export interface AutoDjSnapshot {
 }
 
 const MAX_EVENTS = 60;
+
+const VIA_KO: Record<FallbackVia, string> = {
+  primary: "1순위",
+  secondary: "2순위",
+  genre: "장르",
+  none: "없음",
+};
 
 export class AutoDjController {
   private cfg: HypeConfig;
@@ -95,10 +102,10 @@ export class AutoDjController {
     return isAllowed(this.queue, this.snap.currentTrack?.id ?? null, t, this.cfg.dedupeLastN);
   }
 
-  /** Spec §1: genre keyword -> first track -> play. */
+  /** 스펙 §1: 장르 키워드 -> 첫 곡 -> 재생. */
   async start(genre: string): Promise<void> {
     this.set({ genre, phase: "playing" });
-    this.log("info", `Started with genre "${genre}"`);
+    this.log("info", `장르 "${genre}"(으)로 시작`);
     const suggestions = await this.safeRecommend({ genre, count: this.cfg.recommendCount });
     const result = await resolveNextTrack({
       suggestions,
@@ -108,13 +115,13 @@ export class AutoDjController {
       isAllowed: (t) => this.allowed(t),
     });
     if (!result.track) {
-      this.log("error", `No playable first track for "${genre}"`);
+      this.log("error", `"${genre}"의 첫 곡을 찾지 못했습니다`);
       return;
     }
-    await this.playTrack(result.track, "first track");
+    await this.playTrack(result.track, "첫 곡");
   }
 
-  /** Spec §2-4: feed a dB sample; may trigger a HYPE. */
+  /** 스펙 §2-4: dB 샘플 투입; HYPE 트리거 가능. */
   onSample(db: number, t?: number): void {
     if (this.snap.phase !== "playing") {
       this.set({ currentDb: db });
@@ -124,20 +131,20 @@ export class AutoDjController {
     this.trigger = res.state;
     this.set({ currentDb: db, baseline: res.baseline, inCooldown: res.inCooldown });
     if (res.triggered) {
-      this.log("trigger", `HYPE! ${db.toFixed(1)}dB vs baseline ${res.baseline?.toFixed(1)}dB`);
+      this.log("trigger", `HYPE! ${db.toFixed(1)}dB (기준선 ${res.baseline?.toFixed(1)}dB 대비)`);
       this.set({ hype: true });
       setTimeout(() => this.set({ hype: false }), 2500);
-      void this.selectNext("hype");
+      void this.selectNext("HYPE");
     }
   }
 
-  /** Spec §5-7: read current track -> LLM 2 recs -> fallback chain -> set next track. */
+  /** 스펙 §5-7: 현재 곡 파악 -> LLM 2곡 -> 폴백 체인 -> 다음 곡 확정. */
   private async selectNext(reason: string): Promise<void> {
     if (this.resolving) return;
     this.resolving = true;
     try {
       const current = this.deps.getCurrentTrack() ?? this.snap.currentTrack;
-      this.log("llm", `Requesting 2 similar songs (${reason}) for "${current?.title ?? this.snap.genre}"`);
+      this.log("llm", `유사곡 ${this.cfg.recommendCount}곡 요청 (${reason}) — "${current?.title ?? this.snap.genre}"`);
       const suggestions = await this.safeRecommend({
         title: current?.title,
         artist: current?.artist,
@@ -153,29 +160,29 @@ export class AutoDjController {
       });
       if (result.track) {
         this.set({ nextTrack: result.track });
-        this.log("queue", `Next up (${result.via}): ${result.track.title} — ${result.track.artist}`);
+        this.log("queue", `다음 곡 (${VIA_KO[result.via]}): ${result.track.title} — ${result.track.artist}`);
       } else {
-        this.log("error", "Fallback chain produced no playable track");
+        this.log("error", "폴백 체인에서 재생 가능한 곡을 찾지 못했습니다");
       }
     } catch (err) {
-      this.log("error", `selectNext failed: ${err instanceof Error ? err.message : String(err)}`);
+      this.log("error", `다음 곡 선정 실패: ${err instanceof Error ? err.message : String(err)}`);
     } finally {
       this.resolving = false;
     }
   }
 
-  /** Spec §8: current track ended -> play the queued next (or derive one to avoid silence). */
+  /** 스펙 §8: 현재 곡 종료 -> 큐의 다음 곡 재생(없으면 즉시 선정해 무음 방지). */
   async onTrackEnded(): Promise<void> {
     if (this.snap.phase !== "playing") return;
     let next = this.snap.nextTrack;
     if (!next) {
-      await this.selectNext("track-ended (no queue)");
+      await this.selectNext("곡 종료(큐 없음)");
       next = this.snap.nextTrack;
     }
     if (next) {
-      await this.playTrack(next, "track ended");
+      await this.playTrack(next, "곡 종료");
       this.set({ nextTrack: null });
-      void this.selectNext("prefetch"); // keep the queue warm
+      void this.selectNext("미리 준비"); // 큐를 미리 채워둠
     }
   }
 
@@ -183,7 +190,7 @@ export class AutoDjController {
     await this.deps.play(track);
     this.queue = markPlayed(this.queue, track.id, this.cfg.dedupeLastN);
     this.set({ currentTrack: track });
-    this.log("play", `Playing (${reason}): ${track.title} — ${track.artist}`);
+    this.log("play", `재생 (${reason}): ${track.title} — ${track.artist}`);
   }
 
   private async safeRecommend(args: {
@@ -195,7 +202,7 @@ export class AutoDjController {
     try {
       return await this.deps.recommend(args);
     } catch (err) {
-      this.log("error", `LLM failed, using genre fallback: ${err instanceof Error ? err.message : ""}`);
+      this.log("error", `LLM 실패, 장르 폴백 사용: ${err instanceof Error ? err.message : ""}`);
       return [];
     }
   }
