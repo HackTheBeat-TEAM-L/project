@@ -172,7 +172,7 @@ export class AutoDjController {
   }
 
   /** 스펙 §8: 현재 곡 종료 -> 큐의 다음 곡 재생(없으면 즉시 선정해 무음 방지). */
-  async onTrackEnded(): Promise<void> {
+  async onTrackEnded(reason = "곡 종료"): Promise<void> {
     if (this.snap.phase !== "playing") return;
     let next = this.snap.nextTrack;
     if (!next) {
@@ -180,10 +180,16 @@ export class AutoDjController {
       next = this.snap.nextTrack;
     }
     if (next) {
-      await this.playTrack(next, "곡 종료");
+      await this.playTrack(next, reason);
       this.set({ nextTrack: null });
       void this.selectNext("미리 준비"); // 큐를 미리 채워둠
     }
+  }
+
+  /** 수동: 현재 곡 기준으로 다음 곡을 다시 추천·큐잉. */
+  async queueNext(): Promise<void> {
+    if (this.snap.phase !== "playing") return;
+    await this.selectNext("수동 추천");
   }
 
   private async playTrack(track: TrackRef, reason: string): Promise<void> {

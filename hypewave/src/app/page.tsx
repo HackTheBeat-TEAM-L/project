@@ -136,6 +136,10 @@ export default function Page() {
     seq.forEach((db, i) => c.onSample(db, base + i * 120));
   }, []);
 
+  const queueNext = useCallback(() => {
+    void controllerRef.current?.queueNext();
+  }, []);
+
   return (
     <main className="app">
       <header className="app__header">
@@ -252,7 +256,8 @@ export default function Page() {
             mode={mode}
             usingRealMic={usingRealMic}
             onInjectHype={injectHype}
-            onSongEnded={() => void controllerRef.current?.onTrackEnded()}
+            onQueueNext={queueNext}
+            onSongEnded={() => void controllerRef.current?.onTrackEnded("스킵")}
           />
         )
       )}
@@ -272,6 +277,7 @@ interface DashboardProps {
   mode: Mode;
   usingRealMic: boolean;
   onInjectHype: () => void;
+  onQueueNext: () => void;
   onSongEnded: () => void;
 }
 
@@ -280,6 +286,7 @@ function Dashboard({
   mode,
   usingRealMic,
   onInjectHype,
+  onQueueNext,
   onSongEnded,
 }: DashboardProps) {
   const snap = useAutoDjSnapshot(controller);
@@ -302,15 +309,16 @@ function Dashboard({
           <span className="dash__mic-live">🎙 실제 마이크 작동 중 — 함성으로 dB를 올려보세요</span>
         ) : null}
         {mode === "mock" && (
-          <>
-            <button className="btn btn--hype" onClick={onInjectHype}>
-              🔊 HYPE 스파이크 주입
-            </button>
-            <button className="btn btn--ghost" onClick={onSongEnded} data-testid="song-ended">
-              ⏭ 곡 종료 → 다음 곡 재생
-            </button>
-          </>
+          <button className="btn btn--hype" onClick={onInjectHype}>
+            🔊 HYPE 스파이크 주입
+          </button>
         )}
+        <button className="btn btn--ghost" onClick={onQueueNext}>
+          🔮 다음 곡 추천
+        </button>
+        <button className="btn btn--ghost" onClick={onSongEnded} data-testid="song-ended">
+          ⏭ 다음 곡 재생 (스킵)
+        </button>
       </div>
 
       <EventLog events={snap.events} />
