@@ -1,0 +1,4 @@
+node_modules/
+.env
+.ralph_done
+RALPH_LOG.md
