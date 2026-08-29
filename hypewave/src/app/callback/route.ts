@@ -11,6 +11,7 @@ export async function GET(req: NextRequest) {
   const state = url.searchParams.get("state");
   const authError = url.searchParams.get("error");
   const cookieState = req.cookies.get(COOKIE.state)?.value;
+  console.error("[HW callback] host=", url.host, "urlState=", state, "cookieState=", cookieState, "hasCode=", Boolean(code));
 
   const home = (params: string) => new URL(`/?${params}`, req.url);
 
@@ -21,6 +22,7 @@ export async function GET(req: NextRequest) {
 
   try {
     const tokens = await exchangeCodeForTokens(code);
+    console.error("[HW callback] granted scope=", tokens.scope);
     const res = NextResponse.redirect(home("connected=1"));
     setSessionCookies(res, tokens);
     res.cookies.delete(COOKIE.state);
