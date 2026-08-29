@@ -14,3 +14,13 @@
 
 ## 배운 것 / 트러블슈팅
 (매 반복 종료 시 새로 배운 것이나 마주친 함정을 여기에 한 줄씩 추가할 것)
+
+## 배운 것 / 트러블슈팅 (구현 세션)
+- **stack**: Next.js(App Router)로 확정 — API Route가 곧 시크릿 백엔드(토큰교환+LLM 프록시), Vercel 배포·HTTPS 일치. `next dev -p 5173 -H 127.0.0.1`로 기존 redirect URI 유지.
+- **env 단일화**: `hypewave/.env.local` → 루트 `../.env` 심링크. Next가 네이티브 로드, 시크릿은 서버에만.
+- **Gemini 모델**: `gemini-2.5-flash`는 신규 키에 404("no longer available to new users") → **`gemini-3.6-flash`** 사용(curl 검증 완료).
+- **Gemini 키 형식**: 신규 AI Studio 키는 `AIza…`가 아니라 **`AQ.…`** 로 시작할 수 있음(정상). 모델 목록/generateContent 200 확인.
+- **npm 캐시 권한**: `~/.npm` 권한 오류 시 `--cache <임시경로>`로 우회(sudo 불필요).
+- **시크릿 경계**: 유저 access_token만 브라우저로(SDK 필수), client secret·LLM 키는 서버 전용. OAuth는 서버 주도(state 쿠키 CSRF, refresh는 httpOnly).
+- **track-end 감지**: 단일 uri로 play하면 종료 시 Spotify가 position 0에서 pause → (was playing && paused && position 0)로 곡 종료 판정(휴리스틱, 2초 가드).
+- **검증은 mock 우선**: 실 Spotify 재생/마이크는 호스트 환경 필요 → mock 플레이어+가짜 dB 주입+mock Search로 전체 루프를 로그인 없이 검증.
