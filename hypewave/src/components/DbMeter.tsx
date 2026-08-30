@@ -29,8 +29,16 @@ export function DbMeter({ db, baseline, inCooldown, warmedUp, config }: Props) {
         <div className="db-meter__fill" style={{ transform: `scaleX(${Math.max(0, Math.min(1, value / 100))})` }} />
         {baseline !== null && (
           <>
-            <div className="db-meter__mark db-meter__mark--base" style={{ left: pct(base) }} title="기준선 (10초 평균)" />
-            <div className="db-meter__mark db-meter__mark--trigger" style={{ left: pct(triggerLine) }} title={`트리거 (+${config.spikeThresholdDb})`} />
+            <div
+              className="db-meter__mark db-meter__mark--base"
+              style={{ left: pct(base) }}
+              title={`기준선 (${config.rollingWindowSec}초 평균)`}
+            />
+            <div
+              className="db-meter__mark db-meter__mark--trigger"
+              style={{ left: pct(triggerLine) }}
+              title={`트리거 (+${config.spikeThresholdDb}, ${config.sustainMs / 1000}초 지속)`}
+            />
           </>
         )}
       </div>

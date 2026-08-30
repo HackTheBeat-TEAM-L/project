@@ -41,7 +41,7 @@ npm run build     # 프로덕션 빌드 + 타입체크
 ```
 
 ## 설정값 (하드코딩 아님 — `src/lib/config.ts`)
-`spikeThresholdDb=10`, `rollingWindowSec=10`, `warmupSec=10`, `cooldownSec=30`,
+`spikeThresholdDb=10`, `rollingWindowSec=5`, `warmupSec=5`, `cooldownSec=30`,
 `recommendCount=2`, `dedupeLastN=5`. 현장에서 실제 함성 dB를 재보고 임계값 보정.
 
 ## 함정 / 메모

@@ -1,7 +1,7 @@
 // HYPEWAVE tunables — spec §3 requires +10 / 10s / 30s to be config, NOT hardcoded.
 export interface HypeConfig {
   spikeThresholdDb: number; // dB rise over rolling baseline that triggers HYPE
-  rollingWindowSec: number; // rolling-average window ("직전 10초")
+  rollingWindowSec: number; // rolling-average window ("직전 5초")
   warmupSec: number; // no triggers until this many seconds of baseline have accumulated
   sustainMs: number; // dB must hold above the trigger line this long (debounce coughs/transients)
   cooldownSec: number; // ignore re-triggers for this long after a trigger
@@ -12,8 +12,8 @@ export interface HypeConfig {
 
 export const DEFAULT_CONFIG: HypeConfig = {
   spikeThresholdDb: 10,
-  rollingWindowSec: 10,
-  warmupSec: 10,
+  rollingWindowSec: 5,
+  warmupSec: 5,
   sustainMs: 1000,
   cooldownSec: 30,
   recommendCount: 2,

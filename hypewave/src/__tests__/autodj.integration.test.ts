@@ -24,7 +24,7 @@ function warmAndRoar(
 describe("AutoDjController — full service loop (mock)", () => {
   it("start(): recommends -> resolves URI -> plays first track", async () => {
     const played: TrackRef[] = [];
-    const c = new AutoDjController({
+    const c: AutoDjController = new AutoDjController({
       config: DEFAULT_CONFIG,
       getCurrentTrack: () => null,
       recommend: async () => [
@@ -44,7 +44,7 @@ describe("AutoDjController — full service loop (mock)", () => {
   it("sustained roar -> HYPE -> fallback (primary missing -> secondary) -> queue -> auto-play", async () => {
     let clock = 0;
     const played: TrackRef[] = [];
-    const c = new AutoDjController({
+    const c: AutoDjController = new AutoDjController({
       config: { ...DEFAULT_CONFIG },
       getCurrentTrack: () => c.getSnapshot().currentTrack,
       recommend: async (args) => {
@@ -75,7 +75,7 @@ describe("AutoDjController — full service loop (mock)", () => {
 
   it("cooldown: no re-trigger within 30s of a sustained roar", async () => {
     let clock = 0;
-    const c = new AutoDjController({
+    const c: AutoDjController = new AutoDjController({
       config: { ...DEFAULT_CONFIG },
       getCurrentTrack: () => c.getSnapshot().currentTrack,
       recommend: async () => [{ title: "X", artist: "Y" }],
@@ -104,7 +104,7 @@ describe("AutoDjController — full service loop (mock)", () => {
 
   it("excludes the current + queued tracks from the LLM request (no repeats)", async () => {
     const excludes: (string[] | undefined)[] = [];
-    const c = new AutoDjController({
+    const c: AutoDjController = new AutoDjController({
       config: DEFAULT_CONFIG,
       getCurrentTrack: () => c.getSnapshot().currentTrack,
       recommend: async (args) => {
