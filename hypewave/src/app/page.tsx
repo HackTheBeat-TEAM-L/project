@@ -57,7 +57,7 @@ export default function Page() {
   // 실제 마이크: Live 모드에서 시작하면 항상, Mock 모드에서는 'dB 소스=실제 마이크'일 때만
   // 사용(로그인 없이 마이크 감지를 검증할 수 있음).
   const usingRealMic = started && (mode === "live" || micSource === "mic");
-  useMicDbMeter(usingRealMic, (db) => controllerRef.current?.onSample(db));
+  const mic = useMicDbMeter(usingRealMic, (db) => controllerRef.current?.onSample(db));
 
   // Mock + 합성 소스: 기준선이 형성되도록 ~50dB 앰비언트를 주입.
   useEffect(() => {
@@ -255,6 +255,8 @@ export default function Page() {
             controller={controller}
             mode={mode}
             usingRealMic={usingRealMic}
+            micLost={mic.micLost}
+            onReconnectMic={mic.reconnect}
             onInjectHype={injectHype}
             onQueueNext={queueNext}
             onSongEnded={() => void controllerRef.current?.onTrackEnded("스킵")}
@@ -276,6 +278,8 @@ interface DashboardProps {
   controller: AutoDjController;
   mode: Mode;
   usingRealMic: boolean;
+  micLost: boolean;
+  onReconnectMic: () => void;
   onInjectHype: () => void;
   onQueueNext: () => void;
   onSongEnded: () => void;
@@ -285,6 +289,8 @@ function Dashboard({
   controller,
   mode,
   usingRealMic,
+  micLost,
+  onReconnectMic,
   onInjectHype,
   onQueueNext,
   onSongEnded,
@@ -306,9 +312,14 @@ function Dashboard({
       </div>
 
       <div className="dash__controls">
-        {usingRealMic ? (
-          <span className="dash__mic-live">🎙 실제 마이크 작동 중 — 함성으로 dB를 올려보세요</span>
-        ) : null}
+        {usingRealMic &&
+          (micLost ? (
+            <button className="btn btn--hype" onClick={onReconnectMic}>
+              🎙 마이크 재연결
+            </button>
+          ) : (
+            <span className="dash__mic-live">🎙 실제 마이크 작동 중 — 함성으로 dB를 올려보세요</span>
+          ))}
         {mode === "mock" && (
           <button className="btn btn--hype" onClick={onInjectHype}>
             🔊 HYPE 스파이크 주입
