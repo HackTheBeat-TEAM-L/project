@@ -24,3 +24,11 @@
 - **시크릿 경계**: 유저 access_token만 브라우저로(SDK 필수), client secret·LLM 키는 서버 전용. OAuth는 서버 주도(state 쿠키 CSRF, refresh는 httpOnly).
 - **track-end 감지**: 단일 uri로 play하면 종료 시 Spotify가 position 0에서 pause → (was playing && paused && position 0)로 곡 종료 판정(휴리스틱, 2초 가드).
 - **검증은 mock 우선**: 실 Spotify 재생/마이크는 호스트 환경 필요 → mock 플레이어+가짜 dB 주입+mock Search로 전체 루프를 로그인 없이 검증.
+
+## 배운 것 / 트러블슈팅 (운영·배포 세션)
+- **LLM 프로바이더**: 지연·무료한도 때문에 **Groq 권장**(Gemini 무료는 하루 20회 → 소진되면 429). Groq 모델은 계정별로 다름 — `llama-3.3-70b`는 없을 수 있고 **`openai/gpt-oss-20b`** 사용(응답 ~1초). `LLM_MODEL` env로 교체 가능.
+- **LLM JSON 안정화**: gpt-oss는 가끔 산문/추론을 섞음 → **JSON 모드 강제**(Groq `response_format: json_object` + JSON-only 시스템 메시지, Gemini `responseMimeType: application/json`) + 파서가 배열/객체 모두 수용. "No JSON array found" 오류 제거.
+- **OAuth 호스트**: Next가 콜백의 `req.url` host를 `localhost`로 정규화 → 쿠키는 `127.0.0.1`에 심겼는데 리다이렉트는 localhost로 가서 미연결. **콜백 리다이렉트를 redirect_uri 오리진(127.0.0.1)으로 고정**해 해결. 로그인·앱 접속 모두 반드시 127.0.0.1.
+- **streaming 스코프**: 과거 좁은 스코프로 승인돼 있으면 재발급 토큰에 `streaming`이 빠져 SDK가 "Invalid token scopes" → **`show_dialog=true`로 강제 재동의** 1회 후 정상. (StrictMode로 SDK 이중 초기화 시 잔상 에러가 뜰 수 있으나 실제 재생엔 무관 — 기기 등록·재생 성공으로 확인)
+- **HYPE 워밍업**: baseline이 샘플 1~2개만으로도 계산돼 시작 직후 오발 → **`warmupSec`(기본 10초) 전엔 트리거 금지**. 미터에 "워밍업" 표시.
+- **Vercel**: `hypewave/`를 루트로 링크, env는 대시보드 설정. 프로덕션 `SPOTIFY_REDIRECT_URI`는 `https://<도메인>/callback`이고 그 URL을 Spotify 대시보드에도 등록해야 로그인 가능. 자동배포 미연결 시 `npx vercel --prod`로 수동 배포.
