@@ -10,6 +10,7 @@ const BodySchema = z.object({
   artist: z.string().optional(),
   genre: z.string().optional(),
   count: z.number().int().min(1).max(5).optional(),
+  exclude: z.array(z.string()).max(40).optional(),
 });
 
 export async function POST(req: NextRequest) {

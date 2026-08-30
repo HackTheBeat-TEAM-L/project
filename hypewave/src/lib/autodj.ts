@@ -13,15 +13,18 @@ import {
 import { resolveNextTrack, type FallbackVia, type SearchFn } from "./fallback";
 import type { EventKind, EventLogEntry, SongSuggestion, TrackRef } from "./types";
 
+interface RecommendArgs {
+  title?: string;
+  artist?: string;
+  genre?: string;
+  count: number;
+  exclude?: string[];
+}
+
 export interface AutoDjDeps {
   config?: HypeConfig;
   getCurrentTrack: () => TrackRef | null;
-  recommend: (args: {
-    title?: string;
-    artist?: string;
-    genre?: string;
-    count: number;
-  }) => Promise<SongSuggestion[]>;
+  recommend: (args: RecommendArgs) => Promise<SongSuggestion[]>;
   search: SearchFn;
   play: (track: TrackRef) => Promise<void>;
   now?: () => number;
@@ -56,6 +59,7 @@ export class AutoDjController {
   private deps: AutoDjDeps;
   private trigger: TriggerState = createTriggerState();
   private queue: QueueState = createQueueState();
+  private recent: TrackRef[] = []; // recently played tracks, newest first
   private snap: AutoDjSnapshot;
   private listeners = new Set<(s: AutoDjSnapshot) => void>();
   private resolving = false;
@@ -101,7 +105,19 @@ export class AutoDjController {
   }
 
   private allowed(t: TrackRef): boolean {
+    // never re-pick what is already queued as the next track...
+    if (this.snap.nextTrack && t.id === this.snap.nextTrack.id) return false;
+    // ...nor the current track or recently played ones (queue dedupe).
     return isAllowed(this.queue, this.snap.currentTrack?.id ?? null, t, this.cfg.dedupeLastN);
+  }
+
+  // "Title — Artist" list of tracks the LLM should avoid re-suggesting.
+  private excludeList(current: TrackRef | null): string[] {
+    const key = (t: TrackRef) => `${t.title} — ${t.artist}`;
+    const refs = [current, this.snap.nextTrack, ...this.recent].filter(
+      (t): t is TrackRef => Boolean(t)
+    );
+    return Array.from(new Set(refs.map(key)));
   }
 
   /** 스펙 §1: 장르 키워드 -> 첫 곡 -> 재생. */
@@ -140,24 +156,27 @@ export class AutoDjController {
     }
   }
 
-  /** 스펙 §5-7: 현재 곡 파악 -> LLM 2곡 -> 폴백 체인 -> 다음 곡 확정. */
+  /** 스펙 §5-7: 현재 곡 파악 -> LLM 2곡(재생/큐 곡 제외) -> 폴백 체인 -> 다음 곡 확정. */
   private async selectNext(reason: string): Promise<void> {
     if (this.resolving) return;
     this.resolving = true;
     try {
       const current = this.deps.getCurrentTrack() ?? this.snap.currentTrack;
+      const exclude = this.excludeList(current);
       this.log("llm", `유사곡 ${this.cfg.recommendCount}곡 요청 (${reason}) — "${current?.title ?? this.snap.genre}"`);
       const suggestions = await this.safeRecommend({
         title: current?.title,
         artist: current?.artist,
         genre: this.snap.genre,
         count: this.cfg.recommendCount,
+        exclude,
       });
       const result = await resolveNextTrack({
         suggestions,
         genre: this.snap.genre,
         search: this.deps.search,
-        reRecommendByGenre: (g) => this.safeRecommend({ genre: g, count: this.cfg.recommendCount }),
+        reRecommendByGenre: (g) =>
+          this.safeRecommend({ genre: g, count: this.cfg.recommendCount, exclude }),
         isAllowed: (t) => this.allowed(t),
       });
       if (result.track) {
@@ -197,16 +216,15 @@ export class AutoDjController {
   private async playTrack(track: TrackRef, reason: string): Promise<void> {
     await this.deps.play(track);
     this.queue = markPlayed(this.queue, track.id, this.cfg.dedupeLastN);
+    this.recent = [track, ...this.recent.filter((r) => r.id !== track.id)].slice(
+      0,
+      this.cfg.dedupeLastN * 2 + 1
+    );
     this.set({ currentTrack: track });
     this.log("play", `재생 (${reason}): ${track.title} — ${track.artist}`);
   }
 
-  private async safeRecommend(args: {
-    title?: string;
-    artist?: string;
-    genre?: string;
-    count: number;
-  }): Promise<SongSuggestion[]> {
+  private async safeRecommend(args: RecommendArgs): Promise<SongSuggestion[]> {
     try {
       return await this.deps.recommend(args);
     } catch (err) {

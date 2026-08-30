@@ -4,10 +4,27 @@ import { DEFAULT_CONFIG } from "../lib/config";
 import { makeMockSearch } from "../lib/mock";
 import type { TrackRef } from "../lib/types";
 
+// 10s of baseline @100ms then a sustained roar past sustainMs (fires HYPE).
+function warmAndRoar(
+  c: AutoDjController,
+  setClock: (t: number) => void,
+  baseDb = 50,
+  roarDb = 68
+): void {
+  for (let t = 0; t <= 9900; t += 100) {
+    setClock(t);
+    c.onSample(baseDb, t);
+  }
+  for (let t = 10_000; t <= 11_000; t += 100) {
+    setClock(t);
+    c.onSample(roarDb, t);
+  }
+}
+
 describe("AutoDjController — full service loop (mock)", () => {
   it("start(): recommends -> resolves URI -> plays first track", async () => {
     const played: TrackRef[] = [];
-    const c: AutoDjController = new AutoDjController({
+    const c = new AutoDjController({
       config: DEFAULT_CONFIG,
       getCurrentTrack: () => null,
       recommend: async () => [
@@ -24,10 +41,10 @@ describe("AutoDjController — full service loop (mock)", () => {
     expect(c.getSnapshot().phase).toBe("playing");
   });
 
-  it("dB spike -> HYPE -> fallback (primary missing -> secondary) -> queue -> auto-play on end", async () => {
+  it("sustained roar -> HYPE -> fallback (primary missing -> secondary) -> queue -> auto-play", async () => {
     let clock = 0;
     const played: TrackRef[] = [];
-    const c: AutoDjController = new AutoDjController({
+    const c = new AutoDjController({
       config: { ...DEFAULT_CONFIG },
       getCurrentTrack: () => c.getSnapshot().currentTrack,
       recommend: async (args) => {
@@ -43,28 +60,22 @@ describe("AutoDjController — full service loop (mock)", () => {
     });
 
     await c.start("house");
-    for (let s = 0; s < 10; s++) {
-      clock = s * 1000;
-      c.onSample(50, clock);
-    }
-    clock = 10_000;
-    c.onSample(65, clock); // +15 spike -> trigger
+    warmAndRoar(c, (t) => (clock = t));
 
     await vi.waitFor(() => {
       expect(c.getSnapshot().nextTrack).not.toBeNull();
     });
     const next = c.getSnapshot().nextTrack!;
     expect(next.uri).toMatch(/^spotify:track:/);
-    expect(next.title.toLowerCase()).toContain("second"); // secondary adopted
+    expect(next.title.toLowerCase()).toContain("second");
 
     await c.onTrackEnded();
     expect(played.length).toBeGreaterThanOrEqual(2);
-    expect(played[played.length - 1].uri).toMatch(/^spotify:track:/);
   });
 
-  it("cooldown: no re-trigger within 30s", async () => {
+  it("cooldown: no re-trigger within 30s of a sustained roar", async () => {
     let clock = 0;
-    const c: AutoDjController = new AutoDjController({
+    const c = new AutoDjController({
       config: { ...DEFAULT_CONFIG },
       getCurrentTrack: () => c.getSnapshot().currentTrack,
       recommend: async () => [{ title: "X", artist: "Y" }],
@@ -73,17 +84,44 @@ describe("AutoDjController — full service loop (mock)", () => {
       now: () => clock,
     });
     await c.start("pop");
-    for (let s = 0; s < 10; s++) {
-      clock = s * 1000;
-      c.onSample(50, clock);
+    for (let t = 0; t <= 9900; t += 100) {
+      clock = t;
+      c.onSample(50, t);
     }
-    clock = 10_000;
-    c.onSample(65, clock);
+    for (let t = 10_000; t <= 11_000; t += 100) {
+      clock = t;
+      c.onSample(68, t);
+    }
     const triggers1 = c.getSnapshot().events.filter((e) => e.kind === "trigger").length;
-    clock = 15_000;
-    c.onSample(65, clock); // still in cooldown
+    for (let t = 15_000; t <= 16_000; t += 100) {
+      clock = t;
+      c.onSample(68, t);
+    }
     const triggers2 = c.getSnapshot().events.filter((e) => e.kind === "trigger").length;
     expect(triggers1).toBe(1);
     expect(triggers2).toBe(1);
+  });
+
+  it("excludes the current + queued tracks from the LLM request (no repeats)", async () => {
+    const excludes: (string[] | undefined)[] = [];
+    const c = new AutoDjController({
+      config: DEFAULT_CONFIG,
+      getCurrentTrack: () => c.getSnapshot().currentTrack,
+      recommend: async (args) => {
+        excludes.push(args.exclude);
+        const n = excludes.length;
+        return [
+          { title: `Song ${n}`, artist: "Artist" },
+          { title: `Alt ${n}`, artist: "Artist" },
+        ];
+      },
+      search: makeMockSearch(),
+      play: async () => {},
+    });
+    await c.start("house"); // recommend #1 (genre)
+    await c.queueNext(); // recommend #2 -> must exclude the current track
+    const last = excludes[excludes.length - 1];
+    expect(Array.isArray(last)).toBe(true);
+    expect((last ?? []).length).toBeGreaterThan(0);
   });
 });

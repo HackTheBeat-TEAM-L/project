@@ -3,7 +3,6 @@ import { getEnv } from "./env";
 import type { SongSuggestion } from "@/lib/types";
 
 // Model is overridable via LLM_MODEL; falls back to a sensible per-provider default.
-// gemini-2.5-flash is blocked for new API keys -> gemini-3.6-flash.
 const GEMINI_MODEL = process.env.LLM_MODEL?.trim() || "gemini-3.6-flash";
 const GROQ_MODEL = process.env.LLM_MODEL?.trim() || "openai/gpt-oss-20b";
 
@@ -18,20 +17,22 @@ export interface RecommendArgs {
   artist?: string;
   genre?: string;
   count: number;
+  exclude?: string[]; // "Title — Artist" strings already played or queued
 }
 
 function buildPrompt(args: RecommendArgs): string {
-  const { title, artist, genre, count } = args;
+  const { title, artist, genre, count, exclude } = args;
   const shape = `Respond with ONLY a JSON object of this exact shape: {"suggestions":[{"title":"...","artist":"..."}]} containing exactly ${count} items. No prose, no markdown, no explanation.`;
+  const avoid =
+    exclude && exclude.length
+      ? ` Do NOT suggest any of these already played or queued songs (pick fresh ones): ${exclude.slice(0, 25).join("; ")}.`
+      : "";
   if (title && artist) {
-    return `You are a party DJ. The current track is "${title}" by ${artist}. Pick ${count} different real songs that mix well next with similar energy and genre. ${shape}`;
+    return `You are a party DJ. The current track is "${title}" by ${artist}. Pick ${count} different real songs by different artists that mix well next with similar energy and genre.${avoid} ${shape}`;
   }
-  return `You are a party DJ. Pick ${count} well-known real songs in the "${genre ?? "pop"}" genre for a hyped crowd. ${shape}`;
+  return `You are a party DJ. Pick ${count} well-known real songs in the "${genre ?? "pop"}" genre for a hyped crowd.${avoid} ${shape}`;
 }
 
-// Robustly extract suggestions from an LLM response: accepts a bare array, a
-// {suggestions|songs|tracks|recommendations: [...]} object, code-fenced JSON, or
-// JSON embedded in surrounding text.
 function parseSuggestions(text: string): SongSuggestion[] {
   if (!text || !text.trim()) throw new Error("empty LLM response");
   const cleaned = text.replace(/```[a-zA-Z]*/g, "").replace(/```/g, "").trim();
@@ -73,7 +74,7 @@ async function callGroq(prompt: string): Promise<string> {
     },
     body: JSON.stringify({
       model: GROQ_MODEL,
-      temperature: 0.7,
+      temperature: 0.9,
       response_format: { type: "json_object" },
       messages: [
         {
@@ -97,7 +98,7 @@ async function callGemini(prompt: string): Promise<string> {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       contents: [{ parts: [{ text: prompt }] }],
-      generationConfig: { responseMimeType: "application/json" },
+      generationConfig: { responseMimeType: "application/json", temperature: 0.9 },
     }),
   });
   if (!res.ok) throw new Error(`Gemini failed: ${res.status} ${await res.text()}`);

@@ -5,6 +5,7 @@ export async function requestRecommendations(params: {
   artist?: string;
   genre?: string;
   count?: number;
+  exclude?: string[];
 }): Promise<SongSuggestion[]> {
   const res = await fetch("/api/llm", {
     method: "POST",
